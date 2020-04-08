@@ -2,6 +2,9 @@
 Changelog for package topological_navigation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.0.0 (2020-04-08)
+------------------
+
 1.1.1 (2020-04-08)
 ------------------
 * Merge pull request `#6 <https://github.com/LCAS/topological_navigation/issues/6>`_ from Jailander/master
