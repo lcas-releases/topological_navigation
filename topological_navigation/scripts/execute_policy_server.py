@@ -24,7 +24,7 @@ from strands_navigation_msgs.srv import ReconfAtEdges
 
 #from strands_navigation_msgs.msg import TopologicalNode
 from strands_navigation_msgs.msg import TopologicalMap
-from mongodb_store.message_store import MessageStoreProxy
+#from mongodb_store.message_store import MessageStoreProxy
 #from topological_navigation.topological_node import *
 from topological_navigation.navigation_stats import *
 
@@ -55,11 +55,21 @@ DYNPARAM_MAPPING = {
             'yaw_goal_tolerance': 'yaw_goal_tolerance',
             'xy_goal_tolerance': 'xy_goal_tolerance',
             'max_vel_x': 'max_vel_x',
+            'max_vel_trans' : 'max_vel_trans',
             'max_trans_vel' : 'max_trans_vel',
+        },
+                
+        'TebLocalPlannerROS': {
+            'yaw_goal_tolerance': 'yaw_goal_tolerance',
+            'xy_goal_tolerance': 'xy_goal_tolerance',
+            'max_vel_x': 'max_vel_x',
+            'max_vel_trans' : 'max_vel_x',
+            'max_trans_vel' : 'max_vel_x',
         },
 
         'TrajectoryPlannerROS': {
             'max_vel_x': 'max_vel_x',
+            'max_vel_trans' : 'max_vel_x',
             'max_trans_vel' : 'max_vel_x',
         },
     }
@@ -222,7 +232,10 @@ class PolicyExecutionServer(object):
         translation = DYNPARAM_MAPPING[self.move_base_planner]
         for k, v in params.iteritems():
             if k in translation:
-                translated_params[translation[k]] = v
+                if rospy.has_param(translation[k]):
+                    translated_params[translation[k]] = v
+                else:
+                    rospy.logwarn('%s has no parameter %s' % (self.move_base_planner, translation[k]))
             else:
                 rospy.logwarn('%s has no dynparam translation for %s' % (self.move_base_planner, k))
         self._do_movebase_reconf(mb_action, translated_params)
@@ -236,7 +249,9 @@ class PolicyExecutionServer(object):
             try:
                 self.rcnfclient[mb_action].update_configuration(params)
             except  dynamic_reconfigure.DynamicReconfigureCallbackException as exc:
-                rospy.logwarn("I couldn't reconfigure %s parameters. Caught service exception: %s. will continue with previous params" % (mb_action, exc))
+                rospy.logwarn("I couldn't reconfigure %s parameters. Caught service exception: %s. will continue with previous params", mb_action, exc)
+            except dynamic_reconfigure.DynamicReconfigureParameterException as exc:
+                rospy.logwarn("I couldn't reconfigure %s parameters. Caught service exception: %s. will continue with previous params", mb_action, exc)
         else:
             rospy.logwarn("No dynamic reconfigure for %s" % mb_action)
 
@@ -639,12 +654,12 @@ class PolicyExecutionServer(object):
                 rospy.set_param("move_base/NavfnROS/default_tolerance",tolerance/math.sqrt(2))
 
             if next_action in self.move_base_actions :
-                params = { 'yaw_goal_tolerance' : 6.28318531, 'max_vel_x':top_vel, 'max_trans_vel':top_vel}   #360 degrees tolerance
+                params = { 'yaw_goal_tolerance' : 6.28318531, 'max_vel_x':top_vel, 'max_vel_trans':top_vel, 'max_trans_vel':top_vel}   #360 degrees tolerance
             else:
                 if next_action == 'none':                                                #Next node is the final destination
-                    params = { 'yaw_goal_tolerance' : ytolerance, 'max_vel_x':top_vel, 'max_trans_vel':top_vel} #Node predetermined tolerance
+                    params = { 'yaw_goal_tolerance' : ytolerance, 'max_vel_x':top_vel, 'max_vel_trans':top_vel, 'max_trans_vel':top_vel} #Node predetermined tolerance
                 else:                                                                    # Next action not move_base type
-                    params = { 'yaw_goal_tolerance' : 0.523598776, 'max_vel_x':top_vel, 'max_trans_vel':top_vel}   #30 degrees tolerance
+                    params = { 'yaw_goal_tolerance' : 0.523598776, 'max_vel_x':top_vel, 'max_vel_trans':top_vel, 'max_trans_vel':top_vel}   #30 degrees tolerance
 
             if action in self.move_base_actions:
                 self.reconfigure_movebase_params(action, params)
@@ -747,14 +762,14 @@ class PolicyExecutionServer(object):
         pubst.date_finished = self.stat.get_finish_time_str()
         self.stats_pub.publish(pubst)
 
-        meta = {}
-        meta["type"] = "Topological Navigation Stat"
-        meta["epoch"] = calendar.timegm(self.stat.date_at_node.timetuple())
-        meta["date"] = self.stat.date_at_node.strftime('%A, %B %d %Y, at %H:%M:%S hours')
-        meta["pointset"] = self.stat.topological_map
-
-        msg_store = MessageStoreProxy(collection='nav_stats')
-        msg_store.insert(pubst,meta)
+#        meta = {}
+#        meta["type"] = "Topological Navigation Stat"
+#        meta["epoch"] = calendar.timegm(self.stat.date_at_node.timetuple())
+#        meta["date"] = self.stat.date_at_node.strftime('%A, %B %d %Y, at %H:%M:%S hours')
+#        meta["pointset"] = self.stat.topological_map
+#
+#        msg_store = MessageStoreProxy(collection='nav_stats')
+#        msg_store.insert(pubst,meta)
 
 
     """
