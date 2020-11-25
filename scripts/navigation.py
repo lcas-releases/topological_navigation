@@ -41,11 +41,19 @@ DYNPARAM_MAPPING = {
             'yaw_goal_tolerance': 'yaw_goal_tolerance',
             'xy_goal_tolerance': 'xy_goal_tolerance',
             'max_vel_x': 'max_vel_x',
+            'max_vel_trans' : 'max_vel_trans',
             'max_trans_vel' : 'max_trans_vel',
+        },
+                
+        'TebLocalPlannerROS': {
+            'yaw_goal_tolerance': 'yaw_goal_tolerance',
+            'xy_goal_tolerance': 'xy_goal_tolerance',
+            'max_vel_x': 'max_vel_x',
         },
 
         'TrajectoryPlannerROS': {
             'max_vel_x': 'max_vel_x',
+            'max_vel_trans' : 'max_vel_x',
             'max_trans_vel' : 'max_vel_x',
         },
     }
@@ -185,7 +193,10 @@ class TopologicalNavServer(object):
         translation = DYNPARAM_MAPPING[key]
         for k, v in params.iteritems():
             if k in translation:
-                translated_params[translation[k]] = v
+                if rospy.has_param(self.move_base_planner + "/" + translation[k]):
+                    translated_params[translation[k]] = v
+                else:
+                    rospy.logwarn('%s has no parameter %s' % (self.move_base_planner, translation[k]))
             else:
                 rospy.logwarn('%s has no dynparam translation for %s' % (self.move_base_planner, k))
         self._do_movebase_reconf(translated_params)
@@ -599,14 +610,14 @@ class TopologicalNavServer(object):
         pubst.date_finished = self.stat.get_finish_time_str()
         self.stats_pub.publish(pubst)
 
-        meta = {}
-        meta["type"] = "Topological Navigation Stat"
-        meta["epoch"] = calendar.timegm(self.stat.date_at_node.timetuple())
-        meta["date"] = self.stat.date_at_node.strftime('%A, %B %d %Y, at %H:%M:%S hours')
-        meta["pointset"] = self.stat.topological_map
-
-        msg_store = MessageStoreProxy(collection='nav_stats')
-        msg_store.insert(pubst,meta)
+#        meta = {}
+#        meta["type"] = "Topological Navigation Stat"
+#        meta["epoch"] = calendar.timegm(self.stat.date_at_node.timetuple())
+#        meta["date"] = self.stat.date_at_node.strftime('%A, %B %d %Y, at %H:%M:%S hours')
+#        meta["pointset"] = self.stat.topological_map
+#
+#        msg_store = MessageStoreProxy(collection='nav_stats')
+#        msg_store.insert(pubst,meta)
         self.stat= None
 
 
