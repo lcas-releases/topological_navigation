@@ -1,3 +1,31 @@
+## topological_navigation (melodic) - 2.3.0-2
+
+The packages in the `topological_navigation` repository were released into the `melodic` distro by running `/Users/mhanheide/.local/lib/mambaforge/envs/ros_env/bin/bloom-release -t melodic -r melodic topological_navigation` on `Tue, 30 Nov 2021 13:38:55 -0000`
+
+These packages were released:
+- `bayesian_topological_localisation`
+- `topological_navigation`
+- `topological_navigation_msgs`
+- `topological_rviz_tools`
+- `topological_utils`
+
+Version of package(s) in repository `topological_navigation`:
+
+- upstream repository: https://github.com/LCAS/topological_navigation.git
+- release repository: https://github.com/lcas-releases/topological_navigation.git
+- rosdistro version: `2.3.0-1`
+- old version: `2.3.0-1`
+- new version: `2.3.0-2`
+
+Versions of tools used:
+
+- bloom version: `0.10.7`
+- catkin_pkg version: `0.4.24`
+- rosdep version: `0.21.0`
+- rosdistro version: `0.8.3`
+- vcstools version: `0.1.42`
+
+
 ## topological_navigation (melodic) - 2.3.0-1
 
 The packages in the `topological_navigation` repository were released into the `melodic` distro by running `/usr/bin/bloom-release -y --no-web -t melodic -r melodic topological_navigation` on `Thu, 15 Jul 2021 12:23:03 -0000`
