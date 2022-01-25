@@ -10,8 +10,9 @@ import os
 import sys
 import rospy
 import matplotlib.pyplot
+import yaml
 
-import topological_navigation_msgs.msg
+import std_msgs.msg
 
 
 class TopoMapPlotter(object):
@@ -24,11 +25,11 @@ class TopoMapPlotter(object):
         self.rec_map = False
         self.nodes = {}
         self.node_names = []
+
+        self.topo_map_sub = rospy.Subscriber("topological_map_2", std_msgs.msg.String, self.topo_map_cb)
         rospy.loginfo("Waiting for topo_map")
         while not self.rec_map:
-            self.topo_map_sub = rospy.Subscriber("/topological_map", topological_navigation_msgs.msg.TopologicalMap, self.topo_map_cb)
             rospy.sleep(0.5)
-        rospy.loginfo("Received topo_map")
 
         self.fig_file = fig_file
         self.width = fig_width
@@ -37,10 +38,10 @@ class TopoMapPlotter(object):
     def topo_map_cb(self, msg):
         """
         """
-        self.topo_map = msg
-        for node in self.topo_map.nodes:
-            self.nodes[node.name] = node
-            self.node_names.append(node.name)
+        self.topo_map = yaml.safe_load(msg.data)
+        self.nodes = {node["node"]["name"]:node["node"] for node in self.topo_map["nodes"]}
+        self.node_names = [node["node"]["name"] for node in self.topo_map["nodes"]]
+        rospy.loginfo("Received topo_map")
         self.rec_map = True
 
     def plot_map(self, strip_str=""):
@@ -52,8 +53,8 @@ class TopoMapPlotter(object):
         ax = fig.add_subplot(111)
         # node markers
         for node_name in self.node_names:
-            x = self.nodes[node_name].pose.position.x
-            y = self.nodes[node_name].pose.position.y
+            x = self.nodes[node_name]["pose"]["position"]["x"]
+            y = self.nodes[node_name]["pose"]["position"]["y"]
             ax.plot(x, y, color="black", marker="o", markersize=6, markeredgecolor="r")
 
             if min_x is None:
@@ -75,20 +76,20 @@ class TopoMapPlotter(object):
         y_delta = (max_y - min_y) * 0.1
         # node names
         for node_name in self.node_names:
-            x = self.nodes[node_name].pose.position.x
-            y = self.nodes[node_name].pose.position.y
+            x = self.nodes[node_name]["pose"]["position"]["x"]
+            y = self.nodes[node_name]["pose"]["position"]["y"]
             _node_name = node_name
             if strip_str in node_name:
                 _node_name = node_name.strip(strip_str)
             ax.text(x-x_delta/4.0, y + y_delta/4.0, _node_name, fontsize=10)
 
         for node_name in self.node_names:
-            from_x = self.nodes[node_name].pose.position.x
-            from_y = self.nodes[node_name].pose.position.y
-            for edge in self.nodes[node_name].edges:
-                to_node = edge.node
-                to_x = self.nodes[to_node].pose.position.x
-                to_y = self.nodes[to_node].pose.position.y
+            from_x = self.nodes[node_name]["pose"]["position"]["x"]
+            from_y = self.nodes[node_name]["pose"]["position"]["y"]
+            for edge in self.nodes[node_name]["edges"]:
+                to_node = edge["node"]
+                to_x = self.nodes[to_node]["pose"]["position"]["x"]
+                to_y = self.nodes[to_node]["pose"]["position"]["y"]
 #                ax.plot([from_x, to_x], [from_y, to_y], color="black", linewidth=2)
                 ax.arrow(from_x, from_y, to_x-from_x, to_y-from_y, color="black",
                          head_width=0.2 * min(x_delta, y_delta),
