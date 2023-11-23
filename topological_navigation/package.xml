@@ -1,66 +1,43 @@
 <?xml version="1.0"?>
-<package>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>topological_navigation</name>
-  <version>2.4.0</version>
-  <description>The topological_navigation package</description>
+  <version>3.0.1</version>
+  <description>The ros2 topological_navigation package</description>
 
 
-  <maintainer email="jpfentanes@sagarobotics.com">Jaime Pulido Fentanes</maintainer>
   <maintainer email="abinch@sagarobotics.com">Adam Binch</maintainer>
-  <maintainer email="fdelduchetto@lincoln.ac.uk">Francesco Del Duchetto</maintainer>
+  <maintainer email="mhanheide@lincoln.ac.uk">Marc Hanheide</maintainer>
+  <maintainer email="jheselden@lincoln.ac.uk">James R Heselden</maintainer>
 
-  <author>Jaime Pulido Fentanes</author>
-  <author>Adam Binch</author>
-  <author>Francesco Del Duchetto</author>
+  <author email="jpulidofentanes@lincoln.ac.uk">Jaime Pulido Fentanes</author>
+  <author email="abinch@sagarobotics.com">Adam Binch</author>
+  <author email="fdelduchetto@lincoln.ac.uk">Francesco Del Duchetto</author>
 
   <license>MIT</license>
 
-  <!--   <test_depend>gtest</test_depend> -->
-  <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>rospy</build_depend>
-  <build_depend>message_generation</build_depend>
-  <build_depend>geometry_msgs</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>nav_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>actionlib</build_depend>
-  <build_depend>actionlib_msgs</build_depend>
-  <build_depend>mongodb_store</build_depend>
-  <build_depend>visualization_msgs</build_depend>
-  <build_depend>rospy_message_converter</build_depend>
-  <build_depend>topological_navigation_msgs</build_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>launch_pytest</test_depend>
 
-  <run_depend>rospy</run_depend>
-  <run_depend>move_base</run_depend>  
-  <run_depend>message_runtime</run_depend>
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>nav_msgs</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>actionlib</run_depend>
-  <run_depend>actionlib_msgs</run_depend>
-  <run_depend>mongodb_store</run_depend>
-  <run_depend>visualization_msgs</run_depend>
-  <run_depend>dwa_local_planner</run_depend>
-  <run_depend>rospy_message_converter</run_depend>
-  <run_depend>topological_navigation_msgs</run_depend>
+  <depend>ament_cmake</depend>
 
-  <test_depend>rosunit</test_depend>
-  <test_depend>rostest</test_depend>
-  <test_depend>roslib</test_depend>
-  <test_depend>std_srvs</test_depend>
-  <!--test_depend>strands_morse</test_depend-->
-  <!--test_depend>scitos_teleop</test_depend-->
-  <test_depend>tf</test_depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>actionlib_msgs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>topological_navigation_msgs</depend>
 
-
-  <!-- The export tag contains other, unspecified, tags -->
+  <depend>python-transforms3d-pip</depend>
+  <depend>tf_transformations</depend>
+  <depend>launch_pytest</depend>
+  
   <export>
-    <!-- You can specify that this package is a metapackage here: -->
-    <!-- <metapackage/> -->
-
-    <!-- Other tools can request additional information be placed here -->
-
+    <build_type>ament_python</build_type>
   </export>
-
 </package>
+

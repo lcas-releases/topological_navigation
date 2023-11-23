@@ -1,108 +1,128 @@
-## BEGIN_TUTORIAL
-## This CMakeLists.txt file for rviz_plugin_tutorials builds both the
-## TeleopPanel tutorial and the ImuDisplay tutorial.
-##
-## First start with some standard catkin stuff.
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(topological_rviz_tools)
-find_package(catkin REQUIRED COMPONENTS message_generation rviz roscpp geometry_msgs std_msgs topological_navigation_msgs)
 
-add_service_files(
-  FILES
-  AddEdge.srv
-)
 
-generate_messages(
-  DEPENDENCIES
-  std_msgs
-  geometry_msgs
-)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall -Wno-deprecated-declarations")
 
-catkin_package()
-include_directories(${catkin_INCLUDE_DIRS})
-link_directories(${catkin_LIBRARY_DIRS})
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(topological_navigation_msgs REQUIRED)
 
-## This setting causes Qt's "MOC" generation to happen automatically.
+# Define dependencies for RViz Plugins
+find_package(rviz_common REQUIRED)
+find_package(rviz_default_plugins REQUIRED)
+find_package(rviz_ogre_vendor REQUIRED)
+find_package(rviz_rendering REQUIRED)
+find_package(Qt5 REQUIRED COMPONENTS Widgets Core)
+find_package(pluginlib REQUIRED)
+
+add_definitions(-DQT_NO_KEYWORDS)
 set(CMAKE_AUTOMOC ON)
 
-## This plugin includes Qt widgets, so we must include Qt.
-## We'll use the version that rviz used so they are compatible.
-if(rviz_QT_VERSION VERSION_LESS "5")
-  message(STATUS "Using Qt4 based on the rviz_QT_VERSION: ${rviz_QT_VERSION}")
-  find_package(Qt4 ${rviz_QT_VERSION} EXACT REQUIRED QtCore QtGui)
-  ## pull in all required include dirs, define QT_LIBRARIES, etc.
-  include(${QT_USE_FILE})
-else()
-  message(STATUS "Using Qt5 based on the rviz_QT_VERSION: ${rviz_QT_VERSION}")
-  find_package(Qt5 ${rviz_QT_VERSION} EXACT REQUIRED Core Widgets)
-  ## make target_link_libraries(${QT_LIBRARIES}) pull in all required dependencies
-  set(QT_LIBRARIES Qt5::Widgets)
-endif()
-
-## I prefer the Qt signals and slots to avoid defining "emit", "slots",
-## etc because they can conflict with boost signals, so define QT_NO_KEYWORDS here.
-add_definitions(-DQT_NO_KEYWORDS)
-
-
-## Here we specify the list of source files.
-## The generated MOC files are included automatically as headers.
-set(SRC_FILES
-  src/topological_edge_tool.cpp
-  src/topological_node_tool.cpp
-  src/topological_map_panel.cpp
-  src/node_controller.cpp
-  src/topmap_manager.cpp
-  src/node_property.cpp
-  src/edge_property.cpp
-  src/pose_property.cpp
-  src/edge_controller.cpp
-  src/tag_controller.cpp
-  src/tag_property.cpp
+include_directories(
+  include
+  ${rclcpp_INCLUDE_DIRS}
+  ${rviz_common_INCLUDE_DIRS}
+  ${Qt5Core_INCLUDE_DIRS}
+  ${Qt5Widgets_INCLUDE_DIRS}
 )
 
-## An rviz plugin is just a shared library, so here we declare the
-## library to be called ``${PROJECT_NAME}`` (which is
-## "rviz_plugin_tutorials", or whatever your version of this project
-## is called) and specify the list of source files we collected above
-## in ``${SRC_FILES}``.
-add_library(${PROJECT_NAME} ${SRC_FILES})
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_generate_messages_cpp)
-
-## Link the myviz executable with whatever Qt libraries have been defined by
-## the ``find_package(Qt4 ...)`` line above, or by the
-## ``set(QT_LIBRARIES Qt5::Widgets)``, and with whatever libraries
-## catkin has included.
-##
-## Although this puts "rviz_plugin_tutorials" (or whatever you have
-## called the project) as the name of the library, cmake knows it is a
-## library and names the actual file something like
-## "librviz_plugin_tutorials.so", or whatever is appropriate for your
-## particular OS.
-target_link_libraries(${PROJECT_NAME} ${QT_LIBRARIES} ${catkin_LIBRARIES})
-## END_TUTORIAL
-
-## Install rules
-
-install(TARGETS
-  ${PROJECT_NAME}
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+set(topological_rviz_tools_headers_to_moc
+  include/${PROJECT_NAME}/edge_controller.hpp  
+  include/${PROJECT_NAME}/node_controller.hpp  
+  include/${PROJECT_NAME}/node_property.hpp  
+  include/${PROJECT_NAME}/pose_property.hpp  
+  include/${PROJECT_NAME}/tag_controller.hpp  
+  include/${PROJECT_NAME}/tag_property.hpp 
+  include/${PROJECT_NAME}/topmap_manager.hpp 
+  include/${PROJECT_NAME}/topological_edge_tool.hpp 
+  include/${PROJECT_NAME}/topological_map_panel.hpp 
+  include/${PROJECT_NAME}/topological_node_tool.hpp
 )
 
-foreach (dir launch images conf)
-    install(DIRECTORY ${dir}/
-    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/${dir})
-endforeach(dir)
+foreach(header "${vision_msgs_rviz_plugins_headers_to_moc}")
+  qt5_wrap_cpp(topological_rviz_tools_headers_to_moc "${header}")
+endforeach()
 
-
-install(PROGRAMS
-  scripts/python_topmap_interface.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+set(topological_rviz_tools_source_files
+      src/topological_edge_tool.cpp
+      src/topological_node_tool.cpp
+      src/topological_map_panel.cpp
+      src/node_controller.cpp
+      src/topmap_manager.cpp
+      src/node_property.cpp
+      src/edge_property.cpp
+      src/pose_property.cpp
+      src/edge_controller.cpp
+      src/tag_controller.cpp
+      src/tag_property.cpp
 )
 
+add_library(${PROJECT_NAME} SHARED ${topological_rviz_tools_source_files} 
+                      ${topological_rviz_tools_headers_to_moc})
 
-install(FILES
-  plugin_description.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+target_include_directories(${PROJECT_NAME} PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+      ${Qt5Widgets_INCLUDE_DIRS} )
+
+target_link_libraries(${PROJECT_NAME} PUBLIC
+            rviz_ogre_vendor::OgreMain
+            rviz_ogre_vendor::OgreOverlay
+            rviz_common::rviz_common 
+)
+
+target_compile_definitions(${PROJECT_NAME}
+                 PRIVATE "RVIZ_DEFAULT_PLUGINS_BUILDING_LIBRARY")
+
+
+ament_target_dependencies(${PROJECT_NAME}
+        PUBLIC
+        rclcpp
+        rclcpp_components
+        rviz_common
+        rviz_default_plugins
+        rviz_ogre_vendor
+        rviz_rendering
+        topological_navigation_msgs
+        pluginlib)
+
+pluginlib_export_plugin_description_file(rviz_common plugin_description.xml)
+
+ament_export_include_directories("include/${PROJECT_NAME}")
+
+
+ament_export_targets(${PROJECT_NAME} HAS_LIBRARY_TARGET)
+
+ament_export_dependencies(${PROJECT_NAME}
+    rclcpp
+    rclcpp_components
+    rviz_common
+    rviz_default_plugins
+    rviz_ogre_vendor
+    rviz_rendering
+    topological_navigation_msgs
+    pluginlib)
+
+install(TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}
+    ARCHIVE DESTINATION lib
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+  )
+  
+  install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/icons"
+    DESTINATION "share/${PROJECT_NAME}"
+  )
+  
+  install(
+    DIRECTORY include/
+    DESTINATION include/${PROJECT_NAME}
+  )
+
+
+ament_package()
