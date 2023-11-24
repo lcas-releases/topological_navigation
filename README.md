@@ -1,3 +1,30 @@
+## topological_navigation (humble) - 3.0.2-1
+
+The packages in the `topological_navigation` repository were released into the `humble` distro by running `/usr/local/bin/bloom-release -t humble -r humble topological_navigation` on `Fri, 24 Nov 2023 10:56:41 -0000`
+
+These packages were released:
+- `bayesian_topological_localisation`
+- `topological_navigation`
+- `topological_navigation_msgs`
+- `topological_utils`
+
+Version of package(s) in repository `topological_navigation`:
+
+- upstream repository: https://github.com/LCAS/topological_navigation.git
+- release repository: https://github.com/lcas-releases/topological_navigation.git
+- rosdistro version: `3.0.1-1`
+- old version: `3.0.1-2`
+- new version: `3.0.2-1`
+
+Versions of tools used:
+
+- bloom version: `0.11.2`
+- catkin_pkg version: `1.0.0`
+- rosdep version: `0.22.2`
+- rosdistro version: `0.9.0`
+- vcstools version: `0.1.42`
+
+
 ## topological_navigation (humble) - 3.0.1-2
 
 The packages in the `topological_navigation` repository were released into the `humble` distro by running `/usr/local/bin/bloom-release -r humble topological_navigation` on `Fri, 24 Nov 2023 09:05:40 -0000`
