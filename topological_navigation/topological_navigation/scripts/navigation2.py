@@ -11,6 +11,7 @@ from topological_navigation_msgs.srv import EvaluateEdge, EvaluateNode
 from topological_navigation_msgs.action import GotoNode, ExecutePolicyMode
 from topological_navigation_msgs.action import ExecutePolicyMode
 from std_msgs.msg import String
+import os 
 from action_msgs.msg import GoalStatus
 from topological_navigation.route_search2 import RouteChecker, TopologicalRouteSearch2, get_route_distance
 from topological_navigation.navigation_stats import nav_stats
@@ -25,18 +26,11 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallb
 from rclpy.executors import MultiThreadedExecutor, SingleThreadedExecutor 
 from threading import Lock
 
+from ament_index_python.packages import get_package_share_directory
+from topological_navigation.scripts.actions_bt import ActionsType 
 # A list of parameters topo nav is allowed to change and their mapping from dwa speak.
 # If not listed then the param is not sent, e.g. TrajectoryPlannerROS doesn't have tolerances.
-DYNPARAM_MAPPING = {
-    "dwb_core::DWBLocalPlanner": {
-        "FollowPath.yaw_goal_tolerance": "FollowPath.yaw_goal_tolerance",
-        "FollowPath.xy_goal_tolerance": "FollowPath.xy_goal_tolerance",
-    },
-    "TebLocalPlannerROS": {
-        "FollowPath.yaw_goal_tolerance": "FollowPath.yaw_goal_tolerance",
-        "FollowPath.xy_goal_tolerance": "FollowPath.xy_goal_tolerance",
-    },
-}
+
     
 
 ###################################################################################################################
@@ -73,15 +67,9 @@ class TopologicalNavServer(rclpy.node.Node):
         
         self.navigation_activated = False
         self.navigation_lock = Lock()
+        self.ACTIONS = ActionsType()
 
-        navigation_actions = [
-            "NavigateToPose",
-            "NavigateThroughPoses",
-            "ComputePathThroughPoses",
-            "SmoothPath",
-            "DriveOnHeading",
-        ]
-
+        
         self.declare_parameter('navigation_action_name', Parameter.Type.STRING)
         self.declare_parameter('navigation_actions', Parameter.Type.STRING_ARRAY)
         self.declare_parameter('navigation_action_goal', Parameter.Type.STRING_ARRAY)
@@ -91,19 +79,26 @@ class TopologicalNavServer(rclpy.node.Node):
         self.declare_parameter("nav_planner", Parameter.Type.STRING)
 
         self.declare_parameter('use_nav2_follow_route', Parameter.Type.BOOL)
-        self.declare_parameter('bt_for_nav2_follow_route', Parameter.Type.STRING)
-        self.declare_parameter('bt_for_nav2_follow_in_row_route', Parameter.Type.STRING)
+        self.declare_parameter(self.ACTIONS.BT_DEFAULT, Parameter.Type.STRING)
+        self.declare_parameter(self.ACTIONS.BT_IN_ROW, Parameter.Type.STRING)
+        self.declare_parameter(self.ACTIONS.BT_GOAL_ALIGN, Parameter.Type.STRING)
 
-
-
-        self.navigation_action_name = self.get_parameter_or("navigation_action_name", Parameter('str', Parameter.Type.STRING, "NavigateToPose")).value
-        self.navigation_actions = self.get_parameter_or("navigation_actions", Parameter('str', Parameter.Type.STRING_ARRAY, navigation_actions)).value
+        self.navigation_action_name = self.get_parameter_or("navigation_action_name", Parameter('str', Parameter.Type.STRING, self.ACTIONS.NAVIGATE_TO_POSE)).value
+        self.navigation_actions = self.get_parameter_or("navigation_actions", Parameter('str', Parameter.Type.STRING_ARRAY, self.ACTIONS.navigation_actions)).value
 
         self.use_nav2_follow_route = self.get_parameter_or("use_nav2_follow_route", Parameter('bool', Parameter.Type.BOOL, False)).value
-        self.bt_for_nav2_follow_route =  self.get_parameter_or("bt_for_nav2_follow_route", Parameter('str', Parameter.Type.STRING, "config/go_through_poses_bt.xml")).value
-        self.bt_for_nav2_follow_in_row_route =  self.get_parameter_or("bt_for_nav2_follow_in_row_route", Parameter('str', Parameter.Type.STRING, "config/go_through_poses_bt.xml")).value
-
         
+        bt_tree_default = os.path.join(get_package_share_directory('topological_navigation'), 'config', 'bt_tree_default.xml')
+        bt_tree_in_row = os.path.join(get_package_share_directory('topological_navigation'), 'config', 'bt_tree_in_row.xml')
+        bt_tree_goal_align = os.path.join(get_package_share_directory('topological_navigation'), 'config', 'bt_tree_goal_align.xml')
+        self.bt_trees = {}
+        self.bt_trees[self.ACTIONS.NAVIGATE_TO_POSE] =  self.get_parameter_or(self.ACTIONS.BT_DEFAULT, Parameter('str'
+                                       , Parameter.Type.STRING, bt_tree_default)).value
+        self.bt_trees[self.ACTIONS.ROW_TRAVERSAL] =   self.get_parameter_or(self.ACTIONS.BT_IN_ROW
+                                        , Parameter('str', Parameter.Type.STRING, bt_tree_in_row)).value
+        self.bt_trees[self.ACTIONS.GOAL_ALIGN] =   self.get_parameter_or(self.ACTIONS.BT_GOAL_ALIGN
+                                        , Parameter('str', Parameter.Type.STRING, bt_tree_goal_align)).value
+
         if not self.navigation_action_name in self.navigation_actions:
             self.navigation_actions.append(self.navigation_action_name)
         
@@ -182,7 +177,7 @@ class TopologicalNavServer(rclpy.node.Node):
         self._as_exec_policy_action_feedback_pub = self.create_publisher(ExecutePolicyModeFeedback, 'topological_navigation/execute_policy_mode/feedback'
                                                                                     , qos_profile=self.latching_qos)
         
-        self.update_params_planner = ParameterUpdaterNode("controller_server") #TODO change the name 
+        self.update_params_control_server = ParameterUpdaterNode("controller_server") #TODO change the name 
 
         self.get_logger().info("...done")
         self.get_logger().info("All Done.")
@@ -198,10 +193,10 @@ class TopologicalNavServer(rclpy.node.Node):
     def init_reconfigure(self):
         self.nav_planner  = self.get_parameter_or("nav_planner", Parameter('str', Parameter.Type.STRING, "dwb_core::DWBLocalPlanner")).value
         planner = self.nav_planner.split("/")[-1]
-        if not planner in DYNPARAM_MAPPING:
-            DYNPARAM_MAPPING[planner] = {}
+        if not planner in self.ACTIONS.planner_with_goal_checker_config:
+            self.ACTIONS.planner_with_goal_checker_config[planner] = {}
         self.get_logger().info("Creating reconfigure client for {}".format(self.nav_planner))
-        self.init_dynparams = self.update_params_planner.get_params()
+        self.init_dynparams = self.update_params_control_server.get_params()
         
 
     def reconf_movebase(self, cedg, cnode, intermediate):
@@ -220,10 +215,10 @@ class TopologicalNavServer(rclpy.node.Node):
         params = {"FollowPath.yaw_goal_tolerance": cytol, "FollowPath.xy_goal_tolerance": cxygtol}
         self.get_logger().info("Reconfiguring %s with %s" % (self.nav_planner, params))
         print("Intermediate: {}".format(intermediate))
-        self.update_params_planner.set_params(params)     
+        self.update_params_control_server.set_params(params)     
 
     def reset_reconf(self):
-        self.update_params_planner.set_params(self.init_dynparams)
+        self.update_params_control_server.set_params(self.init_dynparams)
 
     def MapCallback(self, msg):
         """
@@ -440,7 +435,7 @@ class TopologicalNavServer(rclpy.node.Node):
     
                 # 5 degrees tolerance
                 params = {"yaw_goal_tolerance": 0.087266}
-                self.update_params_planner.set_params(params)
+                self.update_params_control_server.set_params(params)
 
                 self.current_target = Orig
                 nav_ok, inc = self.execute_action(self.navigation_action_edge, o_node)
@@ -523,7 +518,7 @@ class TopologicalNavServer(rclpy.node.Node):
             self.edge_reconf_end()
 
             params = {"yaw_goal_tolerance": 0.087266, "xy_goal_tolerance": 0.1}
-            self.update_params_planner.set_params(params)
+            self.update_params_control_server.set_params(params)
 
             not_fatal = nav_ok
             if self.cancelled:
@@ -568,7 +563,7 @@ class TopologicalNavServer(rclpy.node.Node):
         result = nav_ok
         return result, inc
 
-    def navigate_to_poses(self, route, target, exec_policy, bt_tree=None, bt_tree_in_row=None):
+    def navigate_to_poses(self, route, target, exec_policy):
         """
         This function follows the chosen route to reach the goal.
         """
@@ -611,7 +606,7 @@ class TopologicalNavServer(rclpy.node.Node):
     
                 # 5 degrees tolerance
                 params = {"yaw_goal_tolerance": 0.087266}
-                self.update_params_planner.set_params(params)
+                self.update_params_control_server.set_params(params)
 
                 self.current_target = Orig
                 nav_ok, inc = self.execute_action(self.navigation_action_edge, o_node)
@@ -641,15 +636,15 @@ class TopologicalNavServer(rclpy.node.Node):
         route_dests = []
         route_origins = []
         route_actions_list = []
+        cedg = get_edge_from_id_tmap2(self.lnodes, route.source[rindex], route.edge_id[rindex])
+        self.stat = nav_stats(route.source[rindex], cedg["node"], self.topol_map, cedg["edge_id"])
+        dt_text = self.stat.get_start_time_str()
 
         while rindex < (len(route.edge_id)):
             cedg = get_edge_from_id_tmap2(self.lnodes, route.source[rindex], route.edge_id[rindex])
             a = cedg["action"]
             route_actions_list.append(a)
-            if(rindex == 0):
-                self.stat = nav_stats(route.source[rindex], cedg["node"], self.topol_map, cedg["edge_id"])
-                dt_text = self.stat.get_start_time_str()
-
+                
             if(rindex == (len(route.edge_id)-1)):
                 self.stat.target = cedg["edge_id"]
 
@@ -692,12 +687,13 @@ class TopologicalNavServer(rclpy.node.Node):
             route_dests.append(cnode)
             route_origins.append(onode)
             # params = {"yaw_goal_tolerance": 0.087266, "xy_goal_tolerance": 0.1}
-            # self.update_params_planner.set_params(params)
+            # self.update_params_control_server.set_params(params)
             rindex = rindex + 1
 
         self.get_logger().info(" ========== Action list {} ".format(route_actions_list))
         nav_ok, inc, status  = self.execute_actions(route_edges, route_dests, route_origins
-                    , action_name="NavigateThroughPoses", bt_tree=bt_tree, bt_tree_in_row=bt_tree_in_row)
+                            , action_name=self.ACTIONS.NAVIGATE_THROUGH_POSES)
+        
         self.stat.set_ended(self.current_node)
         dt_text = self.stat.get_finish_time_str()
         operation_time = self.stat.operation_time
@@ -719,6 +715,8 @@ class TopologicalNavServer(rclpy.node.Node):
             else:
                 self.get_logger().warning("Fatal Fail on {} ({}/{})".format(dt_text, operation_time, time_to_wp))
                 self.stat.status = "fatal"
+
+
         self.publish_stats()
         self.reset_reconf()
         self.navigation_activated = False
@@ -757,8 +755,7 @@ class TopologicalNavServer(rclpy.node.Node):
                         self.get_logger().info("Navigating Case 1: Following route")
                         self.publish_route(route, target)
                         if(self.use_nav2_follow_route):
-                            result, inc, status = self.navigate_to_poses(route, target, 0
-                                                            , bt_tree=self.bt_for_nav2_follow_route, bt_tree_in_row=self.bt_for_nav2_follow_in_row_route)
+                            result, inc, status = self.navigate_to_poses(route, target, 0)
                         else:
                             result, inc = self.followRoute(route, target, 0)
                         self.get_logger().info("Navigating Case 1 -> res: {}".format(inc))
@@ -1051,15 +1048,14 @@ class TopologicalNavServer(rclpy.node.Node):
             self.get_logger().info("\t>> new route: {}".format(new_route))
         return nav_ok, inc, recovering, new_route, replanned
     
-    def execute_actions(self, edges, destination_nodes, origin_nodes=None,  action_name=None, bt_tree=None, bt_tree_in_row=None):
+    def execute_actions(self, edges, destination_nodes, origin_nodes=None,  action_name=None):
 
         inc = 0
         result = True
         self.goal_reached = False
         self.prev_status = None
 
-        self.edge_action_manager.initialise(edges, destination_nodes, origin_nodes, action_name=action_name
-                                            , bt_tree=bt_tree, bt_tree_in_row=bt_tree_in_row)
+        self.edge_action_manager.initialise(edges, destination_nodes, origin_nodes, action_name=action_name, bt_trees=self.bt_trees)
         self.edge_action_manager.execute()
         status = self.edge_action_manager.get_state()
         self.pub_status(status)
